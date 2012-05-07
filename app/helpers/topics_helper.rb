@@ -1,118 +1,52 @@
-# coding: utf-8  
+# coding: utf-8
+require 'digest/md5'
 module TopicsHelper
   def format_topic_body(text, options = {})
+    return '' if text.blank?
 
-    options[:title] ||= ''
-    options[:allow_image] ||= true
-    options[:mentioned_user_logins] ||= []
-    options[:class] ||= ''
+    convert_bbcode_img(text) unless options[:allow_image] == false
+    
+    # 如果 ``` 在刚刚换行的时候 Redcapter 无法生成正确，需要两个换行
+    text.gsub!("\n```","\n\n```")
+    
+    result = MarkdownTopicConverter.convert(text)
 
-    text = h(text)
-    
-    ## fenced code block with ```
-    text = parse_fenced_code_block(text)
-    
-    # parse bbcode-style image [img]url[/img]
-    parse_bbcode_image!(text, options[:title]) if options[:allow_image]
-    
-    # Auto Link
-    
-    text = auto_link(text,:all, :target => '_blank', :rel => "nofollow")
-    
-    # mention floor by #
-    link_mention_floor!(text)
-    
-    # mention user by @
-    link_mention_user!(text, options[:mentioned_user_logins])
-
-    text = simple_format(text)
-
-    text = reformat_code_block(text) do |code|
-      code.gsub!(/<br\s?\/?>/, "")
-    end
-
-    return raw(text)
-
+    link_mention_floor(result)
+    link_mention_user(result)
+        
+    return result.strip.html_safe
   end
 
-  def parse_fenced_code_block(text)
-    source = String.new(text.to_s)
-
-    source.gsub!(/(```.+?```)/im) do
-      code = CGI::unescapeHTML($1)
-
-      # let the markdown compiler draw the <pre><code>
-      # (with syntax highlighting)
-      $markdown.render(code)
-    end
-
-    return source
+  # convert bbcode-style image tag [img]url[/img] to markdown syntax ![alt](url)
+  def convert_bbcode_img(text)
+    text.gsub!(/\[img\](.+?)\[\/img\]/i) {"![#{image_alt $1}](#{$1})"}
   end
 
-  def reformat_code_block(text, &block)
-    # XXX: ActionView uses SafeBuffer, not String
-    # and it's gsub is different from String#gsub
-    # which makes gsub with block unusable.
-
-    source = String.new(text.to_s)
-
-    source.gsub!(/<pre>(.+?)<\/pre>/mi) do |matched|
-      code = $1
-
-      block.call(code)
-
-      logger.debug("after: #{code}")
-
-      "<pre>#{code}</pre>"
-    end
-    source
+  # convert '#N楼' to link
+  def link_mention_floor(text)
+    text.gsub!(/#(\d+)([楼樓Ff])/) { link_to "##{$1}#{$2}", "#reply#{$1}", :class => "at_floor", "data-floor" => $1 }
   end
 
-  def parse_bbcode_image!(text, title)
-    text.gsub!(/\[img\](http:\/\/.+?)\[\/img\]/i) do
-      src = $1
-      image_tag(src, :alt => title)
-    end
-  end
-
-  def link_mention_floor!(text)
-
-    # matches #X樓, #X楼, #XF, #Xf, with or without :
-    # doesn't care if there is a space after the mention command
-    expression = /#([\d]+)([楼樓Ff]\s?)/
-
-    text.gsub!(expression) do |floor_token|
-      floorish, postfix = $1, $2
-
-      html_options = {
-        :class => "at_floor", "data-floor" => floorish,
-        :onclick => "return Topics.hightlightReply(#{floorish})"
-      }
-
-      link_to(floor_token, "#reply#{floorish}", html_options) 
-    end
-  end
-
-  def link_mention_user!(text, mentioned_user_logins)
-    return text if mentioned_user_logins.blank?
-    text.gsub!(/@(#{mentioned_user_logins.join('|')})/) do |mention_token|
-      user_name = $1
-      link_to(mention_token, user_path(user_name), 
-              :class => "at_user", :title => mention_token)
-    end
+  # convert '@user' to link
+  # match any user even not exist.
+  def link_mention_user(text)
+    text.gsub!(/(^|[^a-zA-Z0-9_!#\$%&*@＠])@([a-zA-Z0-9_]{1,20})/io) { 
+      "#{$1}" + link_to(raw("<i>@</i>#{$2}"), user_path($2), :class => "at_user", :title => "@#{$2}") 
+    }
   end
   
   def topic_use_readed_text(state)
     case state
     when true
-      "在你读过以后还没有新变化"
+      t("topics.have_no_new_reply")
     else
-      "有新内容"
+      t("topics.has_new_replies")
     end
   end
 
   def render_topic_title(topic)
-    link_to(topic.title, topic_path(topic), :title => topic.title)
+    return t("topics.topic_was_deleted") if topic.blank?
+    link_to(topic.title, topic_url(topic), :title => topic.title)
   end
   
   def render_topic_last_reply_time(topic)

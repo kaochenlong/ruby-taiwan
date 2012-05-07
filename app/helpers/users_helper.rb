@@ -23,9 +23,9 @@ module UsersHelper
     end
     
     hash = (user.blank? or user.email.blank?) ? Digest::MD5.hexdigest("") : Digest::MD5.hexdigest(user.email)
-    return image_tag("http://www.gravatar.com/avatar/#{hash}?s=#{width}&d=identicon")  if user.blank?
+    return image_tag("http://www.gravatar.com/avatar/#{hash}.png?s=#{width}&d=identicon")  if user.blank?
     
-    img_src = "http://www.gravatar.com/avatar/#{hash}?s=#{width}&d=identicon"
+    img_src = "http://www.gravatar.com/avatar/#{hash}.png?s=#{width}&d=identicon"
     img = image_tag(img_src, :style => "width:#{width}px;height:#{width}px;")
     html = ""
     if link
@@ -37,7 +37,7 @@ module UsersHelper
   end
   
   def render_user_location(user)
-    return user.location
+    return location_name_tag(user.location)
   end
   
   def render_user_join_time(user)
@@ -60,12 +60,26 @@ module UsersHelper
     if admin?(user)
       content_tag(:span, t("common.admin_user"), :class => "label warning")
     elsif wiki_editor?(user)
-      content_tag(:span, t("common.widi_admin"), :class => "label success")
+      content_tag(:span, t("common.wiki_admin"), :class => "label success")
     else
       content_tag(:span,  t("common.limit_user"), :class => "label")
     end
   end
   
+  def render_user_state(user, abnormal_only=true)
+    if user.deleted?
+      content_tag(:span, t("users.state.deleted"), :class => "label important")
+    elsif user.blocked?
+      content_tag(:span, t("users.state.blocked"), :class => "label important")
+    elsif user.normal?
+      unless abnormal_only == true
+        content_tag(:span, t("users.state.normal"), :class => "label success")
+      end
+    else
+      content_tag(:span, "?", :class => "label default")
+    end
+  end
+
   private
   
   def user_popover_info(user)
@@ -73,6 +87,6 @@ module UsersHelper
     return "" if user.location.blank?
     title = user.location.blank? ? "#{user.login}" : "<i><span class='icon small_pin'></span>#{user.location}</i> #{user.login}"
     tagline = user.tagline.blank? ? "这哥们儿没签名" : truncate(user.tagline, :length => 20)
-    raw %(rel="popover" data-placement="below" title="#{h(title)}" data-content="#{h(tagline)}")
+    raw %(rel="userpopover" title="#{h(title)}" data-content="#{h(tagline)}")
   end
 end

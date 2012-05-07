@@ -21,7 +21,7 @@ class TopicsCell < BaseCell
   # 热门节点
   cache :sidebar_hot_nodes, :expires_in => 30.minutes
   def sidebar_hot_nodes
-    @hot_nodes = Node.hots.limit(10)
+    @hot_nodes = Node.hots.limit(30)
     render
   end
   
@@ -40,7 +40,14 @@ class TopicsCell < BaseCell
     render 
   end
   
-  def reply_help_block
+  def reply_help_block(opts = {})
+    @full = opts[:full] || false
     render
+  end
+  
+  cache :index_locations, :expires_in => 1.days
+  def index_locations
+    @hot_locations = User.most_popular_locations(12)
+    render 
   end
 end

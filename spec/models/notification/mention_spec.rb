@@ -1,9 +1,19 @@
 require 'spec_helper'
 
 describe Notification::Mention do
-  it "should be create after reply with mention" do
-    lambda do
-      Factory :reply, :mentioned_user_ids => [Factory(:user).id]
-    end.should change(Notification::Mention, :count)
-  end
 end
+
+# == Schema Information
+#
+# Table name: notifications
+#
+#  id          :integer(4)      not null, primary key
+#  type        :string(255)     not null
+#  source_id   :integer(4)
+#  source_type :string(255)
+#  user_id     :integer(4)
+#  is_read     :boolean(1)      default(FALSE)
+#  created_at  :datetime        not null
+#  updated_at  :datetime        not null
+#
+

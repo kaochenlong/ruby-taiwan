@@ -3,8 +3,10 @@ class UsersController < ApplicationController
   before_filter :require_user, :only => "auth_unbind"
   before_filter :init_base_breadcrumb
   before_filter :set_menu_active
-  before_filter :find_user, :only => [:show, :replies, :likes]
-  
+  load_and_authorize_resource :find_by => :login,
+                              :except => [:auth_unbind, :location]
+  skip_authorize_resource :only => :index
+
   def index
     @total_user_count = User.count
     drop_breadcrumb t("common.index")
@@ -17,7 +19,7 @@ class UsersController < ApplicationController
   end
   
   def replies
-    @replies = @user.replies.only(:topic_id, :body, :created_at).recent.includes(:topic).limit(10)
+    @replies = @user.replies.recent.includes(:topic).limit(10)
     drop_breadcrumb(@user.login, user_path(@user.login))
     drop_breadcrumb("回帖")
   end
@@ -26,6 +28,12 @@ class UsersController < ApplicationController
     @likes = @user.likes.recent.topics.paginate(:page => params[:page], :per_page => 20)
     drop_breadcrumb(@user.login, user_path(@user.login))
     drop_breadcrumb("喜欢")
+  end
+
+  def notes
+    @notes = @user.notes.public.paginate(:page => params[:page], :per_page => 20)
+    drop_breadcrumb(@user.login, user_path(@user.login))
+    drop_breadcrumb("公開記事")
   end
   
   def auth_unbind
@@ -39,10 +47,16 @@ class UsersController < ApplicationController
     redirect_to edit_user_registration_path, :flash => {:warring => t("users.unbind_success", :provider => provider.titleize )}
   end
   
-  protected
-  def find_user
-    @user = User.where(:login => /^#{params[:id]}$/i).first
+  def location
+    @location = params[:id]
+    @users = User.where(:location => @location).order("replies_count DESC").paginate(:page => params[:page], :per_page => 30)
+    if @users.count == 0
+      render_404
+    end
+    drop_breadcrumb(@location)
   end
+  
+  protected
   
   def set_menu_active
     @current = @current = ['/users']

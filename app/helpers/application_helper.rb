@@ -25,7 +25,7 @@ module ApplicationHelper
       :autolink => true,
       :fenced_code_blocks => true
     })
-    content_tag(:div, raw($markdown.render(str)), :class => options[:class])
+    content_tag(:div, raw(MarkdownConverter.convert(str)), :class => options[:class])
   end
   
   def admin?(user = nil)
@@ -50,36 +50,9 @@ module ApplicationHelper
 
   def timeago(time, options = {})
     options[:class] ||= "timeago"
-    content_tag(:abbr, time.to_s, options.merge(:title => time.getutc.iso8601)) if time
+    content_tag(:abbr, "", options.merge(:title => time.iso8601)) if time
   end
 
-  class BootstrapLinkRenderer < ::WillPaginate::ViewHelpers::LinkRenderer
-    protected
-    def html_container(html)
-      tag(:div, tag(:ul, html), container_attributes)
-    end
-
-    def page_number(page)
-      tag( :li, link(page, page, :rel => rel_value(page)), :class =>
-("active" if page == current_page))
-    end
-
-    def gap
-      tag(:li, link(super, "#"), :class => "disabled")
-    end
-
-    def previous_or_next_page(page, text, classname)
-      tag( :li, link(text, page || "#"), :class => [classname[0..3],
-classname, ("disabled" unless page)].join(" "))
-    end
-  end
-
-  def will_paginate1(pages)
-    will_paginate(pages, :class => "pagination", :inner_window => 2,
-:outer_window => 0, :renderer => BootstrapLinkRenderer, :previous_label =>
-"上一页".html_safe, :next_label => "下一页".html_safe)
-  end
-  
   def render_page_title
     title = @page_title ? "#{@page_title} | #{SITE_NAME}" : SITE_NAME rescue "SITE_NAME"
     content_tag("title", title, nil, false)
@@ -97,4 +70,14 @@ classname, ("disabled" unless page)].join(" "))
     Setting.facebook_enable
   end
   
+  MOBILE_USER_AGENTS =  'palm|blackberry|nokia|phone|midp|mobi|symbian|chtml|ericsson|minimo|' +
+                        'audiovox|motorola|samsung|telit|upg1|windows ce|ucweb|astel|plucker|' +
+                        'x320|x240|j2me|sgh|portable|sprint|docomo|kddi|softbank|android|mmp|' +
+                        'pdxgw|netfront|xiino|vodafone|portalmmm|sagem|mot-|sie-|ipod|up\\.b|' +
+                        'webos|amoi|novarra|cdm|alcatel|pocket|iphone|mobileexplorer|mobile'
+  def mobile?
+    agent_str = request.user_agent.to_s.downcase
+    return false if agent_str =~ /ipad/
+    agent_str =~ Regexp.new(MOBILE_USER_AGENTS)
+  end
 end

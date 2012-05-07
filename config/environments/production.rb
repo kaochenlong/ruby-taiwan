@@ -14,7 +14,7 @@ RubyChina::Application.configure do
   config.action_dispatch.x_sendfile_header = "X-Sendfile"
 
   # For nginx:
-  # config.action_dispatch.x_sendfile_header = 'X-Accel-Redirect'
+  config.action_dispatch.x_sendfile_header = 'X-Accel-Redirect'
 
   # If you have no front-end server that supports something like X-Sendfile,
   # just comment this out and Rails will serve the files
@@ -27,7 +27,7 @@ RubyChina::Application.configure do
 
   # Use a different cache store in production
   # config.cache_store = :mem_cache_store
-    config.cache_store = [:dalli_store,"127.0.0.1", {:namespace => "rb-cn", :compression => true}]
+  config.cache_store = [:dalli_store,"127.0.0.1", {:namespace => "rb-cn", :compression => true}]
 
   # Disable Rails's static asset server
   # In production, Apache or nginx will already do this
@@ -62,7 +62,9 @@ RubyChina::Application.configure do
   
   config.assets.js_compressor  = :uglifier
   config.assets.css_compressor = :scss
-  config.assets.precompile += %w(application.css application.js topics.css topics.js window.css front.css cpanel.css users.css posts.css posts.js pages.css pages.js notifications.js notifications.css)
+  config.assets.precompile += %w(application.css application.js topics.css topics.js window.css front.css cpanel.css search.css
+  users.css posts.css posts.js pages.css pages.js notifications.js notifications.css sites.css sites.js 
+  gfdynamicfeedcontrol.css gfdynamicfeedcontrol.js mobile.css)
   
   
 end

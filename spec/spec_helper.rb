@@ -1,11 +1,11 @@
-require 'simplecov'
-SimpleCov.start 'rails'
-
 # This file is copied to spec/ when you run 'rails generate rspec:install'
 ENV["RAILS_ENV"] ||= 'test'
 require File.expand_path("../../config/environment", __FILE__)
 require 'rspec/rails'
 require 'rspec/autorun'
+
+Devise.stretches = 1
+Rails.logger.level = 4
 
 # Requires supporting ruby files with custom matchers and macros, etc,
 # in spec/support/ and its subdirectories.
@@ -33,12 +33,13 @@ RSpec.configure do |config|
   # automatically. This will be the default behavior in future versions of
   # rspec-rails.
   config.infer_base_class_for_anonymous_controllers = false
+  config.render_views
 
-  config.include Delorean
   config.include Devise::TestHelpers, :type => :controller
-  DatabaseCleaner.strategy = :truncation
-  config.before do
-    DatabaseCleaner.clean
+  config.after do
+    Mongoid.database.collections.each do |coll|
+      coll.remove if coll.name !~ /system/
+    end
     Rails.cache.clear
   end
 end

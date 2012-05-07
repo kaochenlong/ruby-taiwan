@@ -1,10 +1,17 @@
+//= require jquery.autogrow-textarea
 # TopicsController 下所有页面的 JS 功能
 window.Topics =
   # 往话题编辑器里面插入图片代码
   appendImageFromUpload : (srcs) ->
     txtBox = $(".topic_editor")
+    caret_pos = txtBox.caretPos()
+    src_merged = ""
     for src in srcs
-      txtBox.val("#{txtBox.val()}[img]#{src}[/img]\n")
+      src_merged = "![](#{src})\n"
+    source = txtBox.val()
+    before_text = source.slice(0, caret_pos)
+    txtBox.val(before_text + src_merged + source.slice(caret_pos+1, source.count))
+    txtBox.caretPos(caret_pos+src_merged.length)
     txtBox.focus()
     $("#add_image").jDialog.close()
 
@@ -16,14 +23,14 @@ window.Topics =
       height: 145
       content: '<iframe src="/photos/tiny_new" frameborder="0" style="width:330px; height:145px;"></iframe>',
       close_on_body_click : false
-    
+
     $("#add_image").jDialog(opts)
     return false
 
   # 回复
   reply : (floor,login) ->
     reply_body = $("#reply_body")
-    new_text = "##{floor}楼 @#{login} "
+    new_text = "##{floor}樓 @#{login} "
     if reply_body.val().trim().length == 0
       new_text += ''
     else
@@ -41,16 +48,74 @@ window.Topics =
     $("#main .alert-message").remove()
     if success
       $("abbr.timeago",$("#replies .reply").last()).timeago()
+      $("abbr.timeago",$("#replies .total")).timeago()
       $("#new_reply textarea").val('')
       App.notice(msg,'#reply')
     else
       App.alert(msg,'#reply')
     $("#new_reply textarea").focus()
-    $('#btn_reply').button('reset')    
-    
+    $('#btn_reply').button('reset')
+
+  preview: (body, format) ->
+    $("#preview").text "Loading..."
+    preview_path = "/" + format + "/preview"  # /topics/preview
+
+    $.post preview_path,
+      "body": body,
+      (data) ->
+        $("#preview").html data.body
+      "json"
+
+  hookPreview: (switcher, textarea) ->
+    # put div#preview after textarea
+    preview_box = $(document.createElement("div")).attr "id", "preview"
+
+    preview_box.addClass("body")
+    $(textarea).after preview_box
+    preview_box.hide()
+
+    $(".edit a",switcher).click ->
+      $(".preview",switcher).removeClass("active")
+      $(this).parent().addClass("active")
+      $(preview_box).hide()
+      $(textarea).show()
+      false
+    $(".preview a",switcher).click ->
+      $(".edit",switcher).removeClass("active")
+      $(this).parent().addClass("active")
+      $(preview_box).show()
+      $(textarea).hide()
+      if $(textarea).hasClass("wiki")
+        format = "wiki"
+      else
+        format = "topics"
+      Topics.preview($(textarea).val(),format)
+      false
+
 # pages ready
 $(document).ready ->
   $("textarea").bind "keydown","ctrl+return",(el) ->
     if $(el.target).val().trim().length > 0
       $("#reply form").submit()
     return false
+
+  $("textarea").autogrow()
+
+  $("#new_reply").submit () ->
+    $('#btn_reply').button('loading')
+
+  $("a.at_floor").live 'click', () ->
+    Topics.hightlightReply($(this).data("floor"))
+
+  $("a.small_reply").live 'click', () ->
+    Topics.reply($(this).data("floor"), $(this).data("login"))
+  
+  Topics.hookPreview($(".editor_toolbar"), $(".topic_editor"))
+  
+  $("body").bind "keydown", "m", (el) ->
+    $('#markdown_help_tip_modal').modal
+      keyboard : true
+      backdrop : true
+      show : true
+
+  return

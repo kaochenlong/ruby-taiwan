@@ -1,20 +1,20 @@
 # coding: utf-8
-require './config/boot'
+require "./config/boot"
+require "bundler/capistrano"
 require 'airbrake/capistrano'
 default_environment["RAILS_ENV"] = "production"
 default_environment["PATH"] = "/usr/local/bin:/usr/bin:/bin"
 
 set :application, "ruby-taiwan"
-set :repository,  "git://github.com/xdite/ruby-taiwan.git"
-set :branch, "remote_production"
+set :repository,  "git://github.com/rubytaiwan/ruby-taiwan.git"
 
+set :branch, "production"
 set :scm, :git
 set :user, "apps"
 set :deploy_to, "/home/apps/#{application}"
 set :runner, "apps"
 set :deploy_via, :remote_cache
 set :git_shallow_clone, 1
-set :use_sudo, false
 
 role :web, "ruby-taiwan.org"                          # Your HTTP server, Apache/etc
 role :app, "ruby-taiwan.org"                          # This may be the same as your `Web` server
@@ -29,22 +29,44 @@ namespace :deploy do
 end
 
 
-task :init_shared_path, :roles => :web do
-  run "mkdir -p #{deploy_to}/shared/log"
-  run "mkdir -p #{deploy_to}/shared/pids"
+namespace :my_tasks do
+  task :symlink, :roles => [:web] do
+    run "mkdir -p #{deploy_to}/shared/log"
+    run "mkdir -p #{deploy_to}/shared/pids"
+    
+    symlink_hash = {
+      "#{shared_path}/config/database.yml"   => "#{release_path}/config/database.yml",
+      "#{shared_path}/config/config.yml"    => "#{release_path}/config/config.yml",
+      "#{shared_path}/config/newrelic.yml"  => "#{release_path}/config/newrelic.yml",
+      "#{shared_path}/config/redis.yml"     => "#{release_path}/config/redis.yml",
+      "#{shared_path}/config/mailman.yml"     => "#{release_path}/config/mailman.yml",
+    }
+
+    symlink_hash.each do |source, target|
+      run "ln -sf #{source} #{target}"
+    end
+    run "ln -sf #{shared_path}/doc/wiki_repo #{release_path}/doc/wiki_repo"
+  end
+  
+  task :restart_resque, :roles => :web do
+    run "cd #{release_path}; RAILS_ENV=production ./script/resque stop; RAILS_ENV=production ./script/resque start"
+  end
+  
+  task :start_mailman, :roles => :web do
+    run "cd #{deploy_to}/current/; RAILS_ENV=production ./script/mailman start"
+  end
+
+  task :stop_mailman, :roles => :web do
+    run "cd #{deploy_to}/current/; RAILS_ENV=production ./script/mailman stop"
+  end
+
+  task :restart_mailman, :roles => :web do
+    run "cd #{deploy_to}/current/; RAILS_ENV=production ./script/mailman stop; RAILS_ENV=production ./script/mailman start"
+  end
 end
 
-task :link_shared_config_yaml, :roles => :web do
-  run "ln -sf #{deploy_to}/shared/config/*.yml #{deploy_to}/current/config/"
-end
 
-task :restart_resque, :roles => :web do
-  run "cd #{deploy_to}/current/; RAILS_ENV=production ./script/resque stop; RAILS_ENV=production ./script/resque start"
-end
 
-task :restart_resque, :roles => :web do
-  run "cd #{deploy_to}/current/; RAILS_ENV=production ./script/resque stop; RAILS_ENV=production ./script/resque start"
-end
 namespace :remote_rake do
   desc "Run a task on remote servers, ex: cap staging rake:invoke task=cache:clear"
   task :invoke do
@@ -52,17 +74,7 @@ namespace :remote_rake do
   end
 end
 
-task :install_gems, :roles => :web do  	
-  run "cd #{deploy_to}/current/; bundle install"	  	
-end
-
-task :compile_assets, :roles => :web do	  	
-  run "cd #{deploy_to}/current/; bundle exec rake assets:precompile"  	
-end
-
-task :mongoid_create_indexes, :roles => :web do
-  run "cd #{deploy_to}/current/; bundle exec rake db:mongoid:create_indexes"
-end
-
-after "deploy:symlink", :init_shared_path, :link_shared_config_yaml, :install_gems, :compile_assets, :mongoid_create_indexes
+after "deploy:finalize_update", "my_tasks:symlink"
+after "deploy:finalize_update", "my_tasks:restart_mailman"
+#after "deploy:restart", "my_tasks:restart_resque"
 

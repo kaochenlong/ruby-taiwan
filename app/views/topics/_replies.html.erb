@@ -1,12 +1,12 @@
-<% if replies.blank? %>
-  <div class="no_result">
-    <%= t("topics.no_replies") %>
+<% cache("topic/#{topic.id}:#{topic.updated_at.to_i}/replies", :expires_in => 2.weeks) do %>
+  <% if replies.blank? %>
+    <div class="no_result">
+      <%= t("topics.no_replies") %>
+    </div>
+  <% else %>
+  <div id="replies" class="box">
+    <%= render "topics/translation/topic_reply_statics", :topic => topic %>
+    <%= render :partial => "replies/reply", :collection => replies %>
   </div>
-<% else %>
-<div id="replies" class="box">
-  <%= render :partial => "topics/translation/topic_reply_statics", :locals => { :topic => topic }%>
-  <% replies.each_with_index do |reply,i| %>
-    <%= render :partial => "replies/reply", :locals => {:topic => topic, :item => reply, :i => i} %>
   <% end %>
-</div>
 <% end %>

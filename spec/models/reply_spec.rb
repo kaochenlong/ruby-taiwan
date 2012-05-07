@@ -21,5 +21,36 @@ describe Reply do
       reply = Factory :reply, :body => "@#{user.login}", :user => user
       reply.mentioned_user_ids.count.should == 0
     end
+
+    it "should ge mentioned user logins" do
+      user1 = Factory :user
+      user2 = Factory :user
+      reply = Factory :reply, :mentioned_user_ids => [user1.id, user2.id]
+      reply.mentioned_user_logins.should =~ [user1.login, user2.login]
+    end
+
+    it "should send mention notification" do
+      user = Factory :user
+      lambda do
+        Factory :reply, :mentioned_user_ids => [user.id]
+      end.should change(user.notifications.unread, :count)
+    end
   end
 end
+
+# == Schema Information
+#
+# Table name: replies
+#
+#  id                 :integer(4)      not null, primary key
+#  body               :text            default(""), not null
+#  topic_id           :integer(4)
+#  user_id            :integer(4)
+#  mentioned_user_ids :text
+#  source             :string(255)
+#  message_id         :string(255)
+#  email_key          :string(255)
+#  created_at         :datetime        not null
+#  updated_at         :datetime        not null
+#
+
